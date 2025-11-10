@@ -10,4 +10,8 @@
     <ProjectReference Include="..\VetClinic.Core\VetClinic.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
 </Project>

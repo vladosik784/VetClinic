@@ -4,18 +4,57 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using VetClinic.Core;
+using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
     public class PetService
     {
-        private static List<Pet> _pets = new List<Pet>();
-        private static int _nextPetId = 1;
+        private const string PetFileName = "pets.json";
+        private readonly FileRepository<Pet> _petRepository;
+        private List<Pet> _pets;
+        private int _nextPetId;
 
         private readonly OwnerService _ownerService;
+
         public PetService(OwnerService ownerService)
         {
             _ownerService = ownerService;
+
+            _petRepository = new FileRepository<Pet>(PetFileName);
+            _pets = _petRepository.ReadAll();
+            _nextPetId = _GetNextId();
+
+            _RestoreRelationships();
+        }
+
+        private void _SaveChanges()
+        {
+            _petRepository.SaveChanges(_pets);
+        }
+
+        private int _GetNextId()
+        {
+            if (_pets.Count == 0) return 1;
+            return _pets.Max(p => p.Id) + 1;
+        }
+        private void _RestoreRelationships()
+        {
+            if (_pets.Count == 0) return;
+
+            foreach (var pet in _pets)
+            {
+                var owner = _ownerService.GetOwnerById(pet.OwnerId);
+                if (owner != null)
+                {
+                    pet.Owner = owner;
+
+                    if (!owner.Pets.Any(p => p.Id == pet.Id))
+                    {
+                        owner.Pets.Add(pet);
+                    }
+                }
+            }
         }
         public Pet RegisterPet(string name, string species, string breed, int age, int ownerId)
         {
@@ -33,15 +72,16 @@ namespace VetClinic.BLL
                 Species = species,
                 Breed = breed,
                 Age = age,
-                OwnerId = ownerId, 
+                OwnerId = ownerId,
                 Owner = owner
             };
 
             _pets.Add(newPet);
-
             owner.Pets.Add(newPet);
 
-            Console.WriteLine($"[PetService] Зареєстровано тварину: {name} (Власник: {owner.FullName})");
+            _SaveChanges();
+
+            Console.WriteLine($"[PetService] Зареєстровано тварину (збережено у файл): {name}");
             return newPet;
         }
 
@@ -49,6 +89,7 @@ namespace VetClinic.BLL
         {
             return _pets.FirstOrDefault(p => p.Id == id);
         }
+
         public List<Pet> GetAllPets()
         {
             return new List<Pet>(_pets);

@@ -4,12 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using VetClinic.Core;
+using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
     public class VisitService
     {
-        private static List<Visit> _visits = new List<Visit>();
+        private const string VisitFileName = "visits.json";
+        private readonly FileRepository<Visit> _visitRepository;
+        private List<Visit> _visits;
 
         private readonly PetService _petService;
         private readonly ProcedureService _procedureService;
@@ -18,7 +21,31 @@ namespace VetClinic.BLL
         {
             _petService = petService;
             _procedureService = procedureService;
+
+            _visitRepository = new FileRepository<Visit>(VisitFileName);
+            _visits = _visitRepository.ReadAll();
+
+            _RestoreRelationships();
         }
+
+        private void _SaveChanges()
+        {
+            _visitRepository.SaveChanges(_visits);
+        }
+
+        private void _RestoreRelationships()
+        {
+            if (_visits.Count == 0) return;
+            foreach (var visit in _visits)
+            {
+                var pet = _petService.GetPetById(visit.PetId);
+                if (pet != null)
+                {
+                    visit.Pet = pet;
+                }
+            }
+        }
+
         public Visit RegisterVisit(int petId, List<int> procedureIds)
         {
             var pet = _petService.GetPetById(petId);
@@ -44,7 +71,7 @@ namespace VetClinic.BLL
                 }
                 else
                 {
-                    Console.WriteLine($"[VisitService] Попередження: Процедура з ID {procId} не знайдена і не буде додана.");
+                    Console.WriteLine($"[VisitService] Попередження: Процедура з ID {procId} не знайдена.");
                 }
             }
 
@@ -55,14 +82,68 @@ namespace VetClinic.BLL
             }
 
             _visits.Add(newVisit);
+            _SaveChanges();
 
-            Console.WriteLine($"[VisitService] Успішно зареєстровано візит {newVisit.Id} для {pet.Name}.");
+            Console.WriteLine($"[VisitService] Успішно зареєстровано візит (збережено у файл) {newVisit.Id} для {pet.Name}.");
             return newVisit;
         }
 
         public List<Visit> GetAllVisits()
         {
             return new List<Visit>(_visits);
+        }
+
+        public Visit GetVisitById(Guid id)
+        {
+            return _visits.FirstOrDefault(v => v.Id == id);
+        }
+
+        public bool UpdateVisitStatus(Guid visitId, string newStatus)
+        {
+            var visit = GetVisitById(visitId);
+            if (visit == null)
+            {
+                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} не знайдено.");
+                return false;
+            }
+
+            visit.Status = newStatus;
+
+            visit.StatusHistory.Add(new StatusHistoryEntry
+            {
+                Timestamp = DateTime.Now,
+                Status = newStatus
+            });
+
+            _SaveChanges();
+
+            Console.WriteLine($"[VisitService] Візит {visitId} оновлено. Новий статус: {newStatus}");
+            return true;
+        }
+
+        public bool CloseVisit(Guid visitId)
+        {
+            var visit = GetVisitById(visitId);
+            if (visit == null)
+            {
+                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} не знайдено.");
+                return false;
+            }
+
+            if (visit.Status == VisitStatus.Completed || visit.Status == VisitStatus.Cancelled)
+            {
+                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} вже закрито або скасовано.");
+                return false;
+            }
+
+            visit.TotalCost = visit.Procedures.Sum(p => p.Price);
+
+            visit.CompletionTime = DateTime.Now;
+
+            UpdateVisitStatus(visitId, VisitStatus.Completed);
+
+            Console.WriteLine($"[VisitService] Візит {visitId} закрито. Загальна вартість: {visit.TotalCost} грн.");
+            return true;
         }
     }
 }

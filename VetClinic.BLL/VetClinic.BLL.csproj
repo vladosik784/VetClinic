@@ -11,4 +11,8 @@
     <ProjectReference Include="..\VetClinic.DAL\VetClinic.DAL.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
 </Project>

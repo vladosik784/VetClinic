@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace VetClinic.Core
 {
@@ -15,6 +16,8 @@ namespace VetClinic.Core
         public int Age { get; set; }
 
         public int OwnerId { get; set; }
+        
+        [JsonIgnore] 
         public Owner Owner { get; set; }
     }
 }

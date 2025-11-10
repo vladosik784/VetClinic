@@ -5,40 +5,65 @@ using System.Text;
 using System.Threading.Tasks;
 using VetClinic.BLL;
 using VetClinic.Core;
+using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
     public class ProcedureService
     {
-        private static List<Procedure> _procedures = new List<Procedure>();
+        private const string ProcedureFileName = "procedures.json";
 
-        private static int _nextProcedureId = 1;
-        public Procedure AddProcedure(string name, decimal price)
+        private readonly FileRepository<Procedure> _procedureRepository;
+
+        private List<Procedure> _procedures;
+
+        private int _nextProcedureId;
+
+        public ProcedureService()
         {
-            if (string.IsNullOrWhiteSpace(name))
+            _procedureRepository = new FileRepository<Procedure>(ProcedureFileName);
+
+            _procedures = _procedureRepository.ReadAll();
+
+            _nextProcedureId = _GetNextId();
+        }
+
+        private void _SaveChanges()
+        {
+            _procedureRepository.SaveChanges(_procedures);
+        }
+
+        private int _GetNextId()
+        {
+            if (_procedures.Count == 0)
             {
-                Console.WriteLine("Название процедуры не может быть пустым.");
-                return null;
+                return 1; 
             }
 
-            if (price <= 0)
+            return _procedures.Max(p => p.Id) + 1;
+        }
+
+        public Procedure AddProcedure(string name, decimal price)
+        {
+            if (string.IsNullOrWhiteSpace(name) || price <= 0)
             {
-                Console.WriteLine("Стоимость процедуры должна быть больше нуля.");
+                Console.WriteLine("[ProcedureService] Невірні дані для процедури.");
                 return null;
             }
 
             var newProcedure = new Procedure
             {
-                Id = _nextProcedureId, 
+                Id = _nextProcedureId,
                 Name = name,
                 Price = price
             };
 
             _procedures.Add(newProcedure);
+            _nextProcedureId++; 
 
-            _nextProcedureId++;
+            _SaveChanges();
 
-            Console.WriteLine($"[ProcedureService] Добавлена услуга: {name}");
+            Console.WriteLine($"[ProcedureService] Додана послуга (збережено у файл): {name}");
             return newProcedure;
         }
 
@@ -46,11 +71,11 @@ namespace VetClinic.BLL
         {
             return new List<Procedure>(_procedures);
         }
-
         public Procedure GetProcedureById(int id)
         {
             return _procedures.FirstOrDefault(p => p.Id == id);
         }
+
         public bool UpdateProcedure(int id, string newName, decimal newPrice)
         {
             var procedureToUpdate = GetProcedureById(id);
@@ -59,21 +84,22 @@ namespace VetClinic.BLL
             {
                 if (string.IsNullOrWhiteSpace(newName) || newPrice <= 0)
                 {
-                    Console.WriteLine("Неверные данные для обновления.");
+                    Console.WriteLine("[ProcedureService] Невірні дані для оновлення.");
                     return false;
                 }
 
                 procedureToUpdate.Name = newName;
                 procedureToUpdate.Price = newPrice;
 
-                Console.WriteLine($"[ProcedureService] Обновлена услуга ID: {id}");
+                _SaveChanges();
+
+                Console.WriteLine($"[ProcedureService] Оновлена послуга ID: {id} (збережено у файл)");
                 return true;
             }
 
-            Console.WriteLine($"[ProcedureService] Услуга с ID {id} не найдена.");
-            return false; 
+            Console.WriteLine($"[ProcedureService] Послуга з ID {id} не знайдена.");
+            return false;
         }
-
         public bool DeleteProcedure(int id)
         {
             var procedureToDelete = GetProcedureById(id);
@@ -81,11 +107,14 @@ namespace VetClinic.BLL
             if (procedureToDelete != null)
             {
                 _procedures.Remove(procedureToDelete);
-                Console.WriteLine($"[ProcedureService] Удалена услуга ID: {id}");
+
+                _SaveChanges();
+
+                Console.WriteLine($"[ProcedureService] Видалена послуга ID: {id} (збережено у файл)");
                 return true;
             }
 
-            Console.WriteLine($"[ProcedureService] Услуга с ID {id} не найдена.");
+            Console.WriteLine($"[ProcedureService] Послуга з ID {id} не знайдена.");
             return false;
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace VetClinic.Core
 {
@@ -10,7 +11,9 @@ namespace VetClinic.Core
     {
         public int Id { get; set; }
         public string FullName { get; set; }
-        public string ContactPhone { get; set; } 
+        public string ContactPhone { get; set; }
+        
+        [JsonIgnore] 
         public List<Pet> Pets { get; set; }
         public Owner()
         {
