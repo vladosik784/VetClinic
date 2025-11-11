@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using VetClinic.BLL;
 using VetClinic.Core;
 using VetClinic.DAL;
 
@@ -12,20 +9,13 @@ namespace VetClinic.BLL
     public class ProcedureService
     {
         private const string ProcedureFileName = "procedures.json";
-
         private readonly FileRepository<Procedure> _procedureRepository;
-
-        private List<Procedure> _procedures;
-
-        private int _nextProcedureId;
+        private readonly List<Procedure> _procedures;
 
         public ProcedureService()
         {
             _procedureRepository = new FileRepository<Procedure>(ProcedureFileName);
-
             _procedures = _procedureRepository.ReadAll();
-
-            _nextProcedureId = _GetNextId();
         }
 
         private void _SaveChanges()
@@ -33,89 +23,85 @@ namespace VetClinic.BLL
             _procedureRepository.SaveChanges(_procedures);
         }
 
-        private int _GetNextId()
-        {
-            if (_procedures.Count == 0)
-            {
-                return 1; 
-            }
+        public List<Procedure> GetAllProcedures() => new List<Procedure>(_procedures);
 
-            return _procedures.Max(p => p.Id) + 1;
-        }
-
-        public Procedure AddProcedure(string name, decimal price)
-        {
-            if (string.IsNullOrWhiteSpace(name) || price <= 0)
-            {
-                Console.WriteLine("[ProcedureService] Невірні дані для процедури.");
-                return null;
-            }
-
-            var newProcedure = new Procedure
-            {
-                Id = _nextProcedureId,
-                Name = name,
-                Price = price
-            };
-
-            _procedures.Add(newProcedure);
-            _nextProcedureId++; 
-
-            _SaveChanges();
-
-            Console.WriteLine($"[ProcedureService] Додана послуга (збережено у файл): {name}");
-            return newProcedure;
-        }
-
-        public List<Procedure> GetAllProcedures()
-        {
-            return new List<Procedure>(_procedures);
-        }
         public Procedure GetProcedureById(int id)
         {
             return _procedures.FirstOrDefault(p => p.Id == id);
         }
 
-        public bool UpdateProcedure(int id, string newName, decimal newPrice)
+        //додати процедуру
+        public void AddProcedure(string name, decimal price, decimal costPrice, List<string> tags=null)
         {
-            var procedureToUpdate = GetProcedureById(id);
-
-            if (procedureToUpdate != null)
+            if (string.IsNullOrWhiteSpace(name))
             {
-                if (string.IsNullOrWhiteSpace(newName) || newPrice <= 0)
-                {
-                    Console.WriteLine("[ProcedureService] Невірні дані для оновлення.");
-                    return false;
-                }
-
-                procedureToUpdate.Name = newName;
-                procedureToUpdate.Price = newPrice;
-
-                _SaveChanges();
-
-                Console.WriteLine($"[ProcedureService] Оновлена послуга ID: {id} (збережено у файл)");
-                return true;
+                Console.WriteLine("[ProcedureService] Помилка: назва не може бути порожньою.");
+                return;
             }
 
-            Console.WriteLine($"[ProcedureService] Послуга з ID {id} не знайдена.");
-            return false;
+            var procedure = new Procedure
+            {
+                Id = _procedures.Count > 0 ? _procedures.Max(p => p.Id) + 1 : 1,
+                Name = name,
+                Price = price,
+                CostPrice = costPrice,
+                Tags = tags ?? new List<string>(),
+                IsBlocked = false
+            };
+
+            _procedures.Add(procedure);
+            _SaveChanges();
+
+            Console.WriteLine($"[ProcedureService] Додано процедуру '{name}' з ціною {price} грн.");
         }
-        public bool DeleteProcedure(int id)
+       
+        //оновити процедуру
+        public void UpdateProcedure(int id, string name = null, decimal? price = null, decimal? costPrice = null, List<string> tags = null, bool? isBlocked = null)
         {
-            var procedureToDelete = GetProcedureById(id);
-
-            if (procedureToDelete != null)
+            var proc = GetProcedureById(id);
+            if (proc == null)
             {
-                _procedures.Remove(procedureToDelete);
-
-                _SaveChanges();
-
-                Console.WriteLine($"[ProcedureService] Видалена послуга ID: {id} (збережено у файл)");
-                return true;
+                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
+                return;
             }
 
-            Console.WriteLine($"[ProcedureService] Послуга з ID {id} не знайдена.");
-            return false;
+            if (!string.IsNullOrWhiteSpace(name)) proc.Name = name;
+            if (price.HasValue) proc.Price = price.Value;
+            if (costPrice.HasValue) proc.CostPrice = costPrice.Value;
+            if (tags != null) proc.Tags = tags;
+            if (isBlocked.HasValue) proc.IsBlocked = isBlocked.Value;
+
+            _SaveChanges();
+            Console.WriteLine($"[ProcedureService] Процедуру ID {id} оновлено.");
+        }
+        //видалити процедуру
+        public void DeleteProcedure(int id)
+        {
+            var proc = GetProcedureById(id);
+            if (proc == null)
+            {
+                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
+                return;
+            }
+
+            _procedures.Remove(proc);
+            _SaveChanges();
+            Console.WriteLine($"[ProcedureService] Процедуру '{proc.Name}' видалено.");
+        }
+
+        //знайти процедуру
+        public void BlockProcedure(int id, bool isBlocked)
+        {
+            var procedure = GetProcedureById(id);
+            if (procedure == null)
+            {
+                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
+                return;
+            }
+
+            procedure.IsBlocked = isBlocked;
+            _SaveChanges();
+            Console.WriteLine($"[ProcedureService] Процедура '{procedure.Name}' {(isBlocked ? "заблокована" : "доступна")}.");
         }
     }
 }

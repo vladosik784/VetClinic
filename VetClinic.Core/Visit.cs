@@ -11,6 +11,9 @@ using Newtonsoft.Json;
         {
             public Guid Id { get; set; }
             public DateTime VisitDate { get; set; }
+            
+            public int CabinetNumber { get; set; }  
+            
             public string Status { get; set; }
 
             public int PetId { get; set; }

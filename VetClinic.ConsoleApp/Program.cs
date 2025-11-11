@@ -38,10 +38,10 @@ namespace VetClinic.ConsoleApp
         {
             Console.WriteLine("\n--- (Тестування CRUD для Процедур) ---");
 
-            _procedureService.AddProcedure("Первинний осмотр", 150);
-            _procedureService.AddProcedure("Вакцинація (комплекс)", 350);
-            _procedureService.AddProcedure("Чипірування", 500);
-            _procedureService.AddProcedure("Стрижка кігтів", 100);
+            _procedureService.AddProcedure("Первинний осмотр", 150,50);
+            _procedureService.AddProcedure("Вакцинація (комплекс)", 350, 250);
+            _procedureService.AddProcedure("Чипірування", 500, 350 );
+            _procedureService.AddProcedure("Стрижка кігтів", 100, 20);
 
             Console.WriteLine("\nПоточний список процедур:");
             PrintAllProcedures();

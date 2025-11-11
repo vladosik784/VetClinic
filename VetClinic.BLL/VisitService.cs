@@ -46,7 +46,7 @@ namespace VetClinic.BLL
             }
         }
 
-        public Visit RegisterVisit(int petId, List<int> procedureIds)
+        public Visit RegisterVisit(int petId, List<int> procedureIds, int cabinetNumber)
         {
             var pet = _petService.GetPetById(petId);
             if (pet == null)
@@ -59,33 +59,35 @@ namespace VetClinic.BLL
             {
                 VisitDate = DateTime.Now,
                 PetId = petId,
-                Pet = pet
+                Pet = pet,
+                CabinetNumber = cabinetNumber
             };
 
             foreach (var procId in procedureIds)
             {
                 var procedure = _procedureService.GetProcedureById(procId);
-                if (procedure != null)
+                if (procedure != null && !procedure.IsBlocked)
                 {
                     newVisit.Procedures.Add(procedure);
-                }
-                else
-                {
-                    Console.WriteLine($"[VisitService] Попередження: Процедура з ID {procId} не знайдена.");
                 }
             }
 
             if (newVisit.Procedures.Count == 0)
             {
-                Console.WriteLine("[VisitService] Помилка: Візит не може бути створений без процедур.");
+                Console.WriteLine("[VisitService] Помилка: Візит не може бути створений без доступних процедур.");
                 return null;
             }
 
             _visits.Add(newVisit);
             _SaveChanges();
 
-            Console.WriteLine($"[VisitService] Успішно зареєстровано візит (збережено у файл) {newVisit.Id} для {pet.Name}.");
+            Console.WriteLine($"[VisitService] Успішно зареєстровано візит у кабінеті {cabinetNumber} для {pet.Name}.");
             return newVisit;
+        }
+        
+        public Visit RegisterVisit(int petId, List<int> procedureIds)
+        {
+            return RegisterVisit(petId, procedureIds, 0);
         }
 
         public List<Visit> GetAllVisits()
