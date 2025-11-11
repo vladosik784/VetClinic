@@ -9,60 +9,55 @@ using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
+    // Сервіс для керування Власниками
     public class OwnerService
     {
         private const string OwnerFileName = "owners.json";
         private readonly FileRepository<Owner> _ownerRepository;
         private List<Owner> _owners;
-        private int _nextOwnerId;
+        private readonly IdCounterService _idService;
 
-        public OwnerService()
+        // Конструктор
+        public OwnerService(IdCounterService idService)
         {
+            _idService = idService;
             _ownerRepository = new FileRepository<Owner>(OwnerFileName);
             _owners = _ownerRepository.ReadAll();
-            _nextOwnerId = _GetNextId();
         }
+
+        // Зберегти зміни
         private void _SaveChanges()
         {
             _ownerRepository.SaveChanges(_owners);
         }
 
-        private int _GetNextId()
-        {
-            if (_owners.Count == 0)
-            {
-                return 1;
-            }
-            return _owners.Max(o => o.Id) + 1;
-        }
-
+        // Зареєструвати нового власника
         public Owner RegisterOwner(string fullName, string phone)
         {
             if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(phone))
             {
-                Console.WriteLine("[OwnerService] Ім'я та телефон не можуть бути порожніми.");
                 return null;
             }
 
             var newOwner = new Owner
             {
-                Id = _nextOwnerId++,
+                Id = _idService.GetNextId(nameof(Owner)),
                 FullName = fullName,
                 ContactPhone = phone
             };
 
             _owners.Add(newOwner);
             _SaveChanges();
-
-            Console.WriteLine($"[OwnerService] Зареєстровано власника (збережено у файл): {fullName}");
             return newOwner;
         }
 
+        // Знайти власника за ID
         public Owner GetOwnerById(int id)
         {
             return _owners.FirstOrDefault(o => o.Id == id);
         }
 
+        // Отримати всіх власників
         public List<Owner> GetAllOwners()
         {
             return new List<Owner>(_owners);

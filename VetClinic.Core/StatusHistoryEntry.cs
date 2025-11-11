@@ -4,10 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace VetClinic.Core;
-
-public class StatusHistoryEntry
+namespace VetClinic.Core
 {
-    public DateTime Timestamp { get; set; }
-    public string Status { get; set; }  
+    // Описує один запис в історії статусів Візиту
+    public class StatusHistoryEntry
+    {
+        // Коли статус змінився
+        public DateTime Timestamp { get; set; }
+        // На який статус
+        public string Status { get; set; }
+    }
 }

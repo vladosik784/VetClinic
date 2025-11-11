@@ -6,42 +6,51 @@ using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
+    // Сервіс для керування Послугами (Процедурами)
     public class ProcedureService
     {
         private const string ProcedureFileName = "procedures.json";
         private readonly FileRepository<Procedure> _procedureRepository;
-        private readonly List<Procedure> _procedures;
+        private List<Procedure> _procedures;
+        private readonly IdCounterService _idService;
 
-        public ProcedureService()
+        // Конструктор
+        public ProcedureService(IdCounterService idService)
         {
+            _idService = idService;
             _procedureRepository = new FileRepository<Procedure>(ProcedureFileName);
             _procedures = _procedureRepository.ReadAll();
         }
 
+        // Зберігає зміни у файл
         private void _SaveChanges()
         {
             _procedureRepository.SaveChanges(_procedures);
         }
 
-        public List<Procedure> GetAllProcedures() => new List<Procedure>(_procedures);
+        // Отримати всі процедури
+        public List<Procedure> GetAllProcedures()
+        {
+            return new List<Procedure>(_procedures);
+        }
 
+        // Отримати одну процедуру за її ID
         public Procedure GetProcedureById(int id)
         {
             return _procedures.FirstOrDefault(p => p.Id == id);
         }
 
-        //додати процедуру
-        public void AddProcedure(string name, decimal price, decimal costPrice, List<string> tags=null)
+        // Додати нову процедуру
+        public Procedure AddProcedure(string name, decimal price, decimal costPrice, List<string> tags)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(name) || price <= 0 || costPrice < 0)
             {
-                Console.WriteLine("[ProcedureService] Помилка: назва не може бути порожньою.");
-                return;
+                return null;
             }
 
             var procedure = new Procedure
             {
-                Id = _procedures.Count > 0 ? _procedures.Max(p => p.Id) + 1 : 1,
+                Id = _idService.GetNextId(nameof(Procedure)),
                 Name = name,
                 Price = price,
                 CostPrice = costPrice,
@@ -51,57 +60,55 @@ namespace VetClinic.BLL
 
             _procedures.Add(procedure);
             _SaveChanges();
-
-            Console.WriteLine($"[ProcedureService] Додано процедуру '{name}' з ціною {price} грн.");
+            return procedure;
         }
-       
-        //оновити процедуру
-        public void UpdateProcedure(int id, string name = null, decimal? price = null, decimal? costPrice = null, List<string> tags = null, bool? isBlocked = null)
+
+        // Оновити існуючу процедуру
+        public bool UpdateProcedure(int id, string name, decimal price, decimal costPrice, List<string> tags, bool isBlocked)
         {
             var proc = GetProcedureById(id);
             if (proc == null)
             {
-                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
-                return;
+                return false;
             }
 
-            if (!string.IsNullOrWhiteSpace(name)) proc.Name = name;
-            if (price.HasValue) proc.Price = price.Value;
-            if (costPrice.HasValue) proc.CostPrice = costPrice.Value;
-            if (tags != null) proc.Tags = tags;
-            if (isBlocked.HasValue) proc.IsBlocked = isBlocked.Value;
+            // Оновлюємо поля
+            proc.Name = name;
+            proc.Price = price;
+            proc.CostPrice = costPrice;
+            proc.Tags = tags ?? proc.Tags;
+            proc.IsBlocked = isBlocked;
 
             _SaveChanges();
-            Console.WriteLine($"[ProcedureService] Процедуру ID {id} оновлено.");
+            return true;
         }
-        //видалити процедуру
-        public void DeleteProcedure(int id)
+
+        // Видалити процедуру
+        public bool DeleteProcedure(int id)
         {
             var proc = GetProcedureById(id);
             if (proc == null)
             {
-                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
-                return;
+                return false;
             }
 
             _procedures.Remove(proc);
             _SaveChanges();
-            Console.WriteLine($"[ProcedureService] Процедуру '{proc.Name}' видалено.");
+            return true;
         }
 
-        //знайти процедуру
-        public void BlockProcedure(int id, bool isBlocked)
+        // Заблокувати/розблокувати процедуру
+        public bool BlockProcedure(int id, bool isBlocked)
         {
             var procedure = GetProcedureById(id);
             if (procedure == null)
             {
-                Console.WriteLine($"[ProcedureService] Процедуру ID {id} не знайдено.");
-                return;
+                return false;
             }
 
             procedure.IsBlocked = isBlocked;
             _SaveChanges();
-            Console.WriteLine($"[ProcedureService] Процедура '{procedure.Name}' {(isBlocked ? "заблокована" : "доступна")}.");
+            return true;
         }
     }
 }

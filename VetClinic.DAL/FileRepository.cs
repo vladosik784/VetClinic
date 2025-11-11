@@ -9,8 +9,8 @@ using VetClinic.Core;
 
 namespace VetClinic.DAL
 {
-    public class FileRepository<T> where T : class 
-                                                   
+    // Універсальний клас для роботи з файлами JSON
+    public class FileRepository<T> where T : class
     {
         private readonly string _filePath;
 
@@ -18,6 +18,8 @@ namespace VetClinic.DAL
         {
             _filePath = Path.Combine(AppContext.BaseDirectory, fileName);
         }
+
+        // Читає всі дані з файлу
         public List<T> ReadAll()
         {
             if (!File.Exists(_filePath))
@@ -27,30 +29,27 @@ namespace VetClinic.DAL
 
             try
             {
-                string json = File.ReadAllText(_filePath);
-
+                string json = File.ReadAllText(_filePath, Encoding.UTF8);
                 var data = JsonConvert.DeserializeObject<List<T>>(json);
-
                 return data ?? new List<T>();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[FileRepository] ОШИБКА чтения файла {_filePath}: {ex.Message}");
                 return new List<T>();
             }
         }
 
+        // Повністю перезаписує файл новими даними
         public void SaveChanges(List<T> data)
         {
             try
             {
                 string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-
-                File.WriteAllText(_filePath, json);
+                File.WriteAllText(_filePath, json, Encoding.UTF8);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[FileRepository] ОШИБКА записи в файл {_filePath}: {ex.Message}");
+
             }
         }
     }

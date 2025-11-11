@@ -8,34 +8,41 @@ using VetClinic.DAL;
 
 namespace VetClinic.BLL
 {
+    // Сервіс для керування Візитами
     public class VisitService
     {
         private const string VisitFileName = "visits.json";
         private readonly FileRepository<Visit> _visitRepository;
         private List<Visit> _visits;
 
+        // Залежності від інших сервісів
         private readonly PetService _petService;
         private readonly ProcedureService _procedureService;
+        private readonly VeterinarianService _veterinarianService;
 
-        public VisitService(PetService petService, ProcedureService procedureService)
+        // Конструктор
+        public VisitService(PetService petService,
+                            ProcedureService procedureService,
+                            VeterinarianService veterinarianService)
         {
             _petService = petService;
             _procedureService = procedureService;
+            _veterinarianService = veterinarianService;
 
             _visitRepository = new FileRepository<Visit>(VisitFileName);
             _visits = _visitRepository.ReadAll();
-
             _RestoreRelationships();
         }
 
+        // Зберегти зміни
         private void _SaveChanges()
         {
             _visitRepository.SaveChanges(_visits);
         }
 
+        // Відновлює зв'язки (Visit -> Pet, Visit -> Vet)
         private void _RestoreRelationships()
         {
-            if (_visits.Count == 0) return;
             foreach (var visit in _visits)
             {
                 var pet = _petService.GetPetById(visit.PetId);
@@ -43,26 +50,36 @@ namespace VetClinic.BLL
                 {
                     visit.Pet = pet;
                 }
+
+                var vet = _veterinarianService.GetVeterinarianById(visit.VeterinarianId);
+                if (vet != null)
+                {
+                    visit.Veterinarian = vet;
+                }
             }
         }
 
-        public Visit RegisterVisit(int petId, List<int> procedureIds, int cabinetNumber)
+        // Зареєструвати новий візит
+        public Visit RegisterVisit(int petId, List<int> procedureIds, int cabinetNumber, int veterinarianId)
         {
             var pet = _petService.GetPetById(petId);
-            if (pet == null)
-            {
-                Console.WriteLine($"[VisitService] Помилка: Тварина з ID {petId} не знайдена.");
-                return null;
-            }
+            if (pet == null) return null;
 
+            var vet = _veterinarianService.GetVeterinarianById(veterinarianId);
+            if (vet == null) return null;
+
+            // Створення
             var newVisit = new Visit
             {
                 VisitDate = DateTime.Now,
                 PetId = petId,
                 Pet = pet,
-                CabinetNumber = cabinetNumber
+                CabinetNumber = cabinetNumber,
+                VeterinarianId = veterinarianId,
+                Veterinarian = vet
             };
 
+            // Додаємо процедури
             foreach (var procId in procedureIds)
             {
                 var procedure = _procedureService.GetProcedureById(procId);
@@ -70,47 +87,42 @@ namespace VetClinic.BLL
                 {
                     newVisit.Procedures.Add(procedure);
                 }
+                else if (procedure == null || procedure.IsBlocked)
+                {
+                    return null;
+                }
             }
 
             if (newVisit.Procedures.Count == 0)
             {
-                Console.WriteLine("[VisitService] Помилка: Візит не може бути створений без доступних процедур.");
                 return null;
             }
 
+            // Збереження
             _visits.Add(newVisit);
             _SaveChanges();
-
-            Console.WriteLine($"[VisitService] Успішно зареєстровано візит у кабінеті {cabinetNumber} для {pet.Name}.");
             return newVisit;
         }
-        
-        public Visit RegisterVisit(int petId, List<int> procedureIds)
-        {
-            return RegisterVisit(petId, procedureIds, 0);
-        }
 
+        // Отримати всі візити
         public List<Visit> GetAllVisits()
         {
             return new List<Visit>(_visits);
         }
 
+        // Знайти візит за ID
         public Visit GetVisitById(Guid id)
         {
             return _visits.FirstOrDefault(v => v.Id == id);
         }
 
+        // Оновити статус візиту
         public bool UpdateVisitStatus(Guid visitId, string newStatus)
         {
             var visit = GetVisitById(visitId);
-            if (visit == null)
-            {
-                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} не знайдено.");
-                return false;
-            }
+            if (visit == null) return false;
 
             visit.Status = newStatus;
-
             visit.StatusHistory.Add(new StatusHistoryEntry
             {
                 Timestamp = DateTime.Now,
@@ -118,34 +130,22 @@ namespace VetClinic.BLL
             });
 
             _SaveChanges();
-
-            Console.WriteLine($"[VisitService] Візит {visitId} оновлено. Новий статус: {newStatus}");
             return true;
         }
 
+        // Закрити візит (розрахувати вартість)
         public bool CloseVisit(Guid visitId)
         {
             var visit = GetVisitById(visitId);
-            if (visit == null)
+            if (visit == null || visit.Status == VisitStatus.Completed)
             {
-                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} не знайдено.");
-                return false;
-            }
-
-            if (visit.Status == VisitStatus.Completed || visit.Status == VisitStatus.Cancelled)
-            {
-                Console.WriteLine($"[VisitService] Помилка: Візит {visitId} вже закрито або скасовано.");
                 return false;
             }
 
             visit.TotalCost = visit.Procedures.Sum(p => p.Price);
-
             visit.CompletionTime = DateTime.Now;
 
-            UpdateVisitStatus(visitId, VisitStatus.Completed);
-
-            Console.WriteLine($"[VisitService] Візит {visitId} закрито. Загальна вартість: {visit.TotalCost} грн.");
-            return true;
+            return UpdateVisitStatus(visitId, VisitStatus.Completed);
         }
     }
 }
